@@ -1,27 +1,8 @@
 ---
 title: "Coursera Capstone Project Milestone Report"
-subtitle: "Data Science Specialization from Johns Hopkins University"
 author: "Prateek Sarangi"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output:
-  html_document:
-    toc: yes
-    toc_float: yes
-    theme: cosmo
-    keep_md: no
-    df_print: paged
-    css: css/custom.css
-  pdf_document:
-    toc: yes
-    df_print: kable
-    number_sections: false
-    fig_caption: yes
-    highlight: tango
-    dev: pdf
-  word_document:
-    toc: yes
-    df_print: paged
-    keep_md: no
+subtitle: Data Science Specialization from Johns Hopkins University
 ---
 
 ## Synopsis
@@ -210,7 +191,8 @@ in this section is also visible in the histogram plots shown above. This
 observation seems to support a general trend towards short and concise
 communications that may be useful later in the project.
 
-> The source code for the above plot is attached as [A.2 Histogram of Words per Line](#a.2-histogram-of-words-per-line) in the Appendix section.
+The source code for the above plot is attached as [A.2 Histogram of Words per Line](#a.2-histogram-of-words-per-line) in the Appendix section.
+
 ## Prepare the Data
 
 ```{r prepare-the-data-sample-and-clean, echo = FALSE}
@@ -252,13 +234,13 @@ function named `buildCorpus` will be employed to perform the following
 transformation steps for each document:
 
 1. Remove URL, Twitter handles and email patterns by converting them to spaces using a custom content transformer
-1. Convert all words to lowercase
-1. Remove common English stop words
-1. Remove punctuation marks
-1. Remove numbers
-1. Trim whitespace
-1. Remove profanity
-1. Convert to plain text documents
+2. Convert all words to lowercase
+3. Remove common English stop words
+4. Remove punctuation marks
+5. Remove numbers
+6. Trim whitespace
+7. Remove profanity
+8. Convert to plain text documents
 
 The corpus will then be written to disk in two formats: a serialized R object
 in RDS format and as a text file. Finally, the first 10 documents (lines) from
@@ -267,15 +249,7 @@ the corpus will be displayed.
 ```{r prepare-the-data-build-corpus, message = FALSE, echo = FALSE}
 library(tm)
 badWordsFile <- "final/full-list-of-bad-words_text-file_2018_07_30.txt"
-if (!file.exists('data')) {
-    dir.create('data')
-}
-if (!file.exists(badWordsFile)) {
-    tempFile <- tempfile()
-    download.file(badWordsURL, tempFile)
-    unzip(tempFile, exdir = "data")
-    unlink(tempFile)
-}
+
 buildCorpus <- function (dataSet) {
     docs <- VCorpus(VectorSource(dataSet))
     toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
@@ -317,7 +291,8 @@ kable(head(corpusText$text, 10),
 rm(sampleData)
 ```
 
-> The source code for preparing the data is attached as [A.3 Sample and Clean the Data](#a.3-sample-and-clean-the-data) and [A.4 Build Corpus](#a.4-build-corpus) in the Appendix section.
+The source code for preparing the data is attached as [A.3 Sample and Clean the Data](#a.3-sample-and-clean-the-data) and [A.4 Build Corpus](#a.4-build-corpus) in the Appendix section.
+
 ## Exploratory Data Analysis
 
 Exploratory data analysis will be performed to fulfill the primary goal for
@@ -362,7 +337,8 @@ suppressWarnings (
 rm(tdm, freq, wordFreq, g)
 ```
 
-> The source code for the word frequency bar chart and constructing the work cloud is attached as [A.5 Word Frequencies](#a.5-word-frequencies) in the Appendix section.
+The source code for the word frequency bar chart and constructing the work cloud is attached as [A.5 Word Frequencies](#a.5-word-frequencies) in the Appendix section.
+
 ### Tokenizing and N-Gram Generation
 
 The predictive model I plan to develop for the Shiny application will handle 
@@ -440,7 +416,8 @@ g <- g + ggtitle("20 Most Common Trigrams")
 print(g)
 ```
 
-> The source code for this section is attached as [A.6 Tokenizing and N-Gram Generation](#a.6-tokenizing-and-n-gram-generation) in the Appendix section.
+The source code for this section is attached as [A.6 Tokenizing and N-Gram Generation](#a.6-tokenizing-and-n-gram-generation) in the Appendix section.
+
 ## Way Forward
 
 The final deliverable in the capstone project is to build a predictive algorithm
