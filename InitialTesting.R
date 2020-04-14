@@ -5,6 +5,8 @@ close(con)
 readLines("Textname.txt",encoding="UTF-8")
 scan("Textname.txt","character",sep="\n")
 
+
+
 strsplit(string,"")
 table(sentences)
 
