@@ -266,7 +266,7 @@ the corpus will be displayed.
 
 ```{r prepare-the-data-build-corpus, message = FALSE, echo = FALSE}
 library(tm)
-badWordsFile <- "full-list-of-bad-words_text-file_2018_07_30.txt"
+badWordsFile <- "final/full-list-of-bad-words_text-file_2018_07_30.txt"
 if (!file.exists('data')) {
     dir.create('data')
 }
