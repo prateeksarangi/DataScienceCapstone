@@ -1,4 +1,4 @@
 final/
-~/.RData
-~/.Rhistory
-~/.DS_Store
+.RData
+.Rhistory
+.DS_Store
