@@ -1,5 +1,5 @@
 con <- file("final/en_US/en_US.twitter.txt", "r")
-readLines(con, -1)
+readLines(con, 2)
 close(con)
 
 readLines("Textname.txt",encoding="UTF-8")
