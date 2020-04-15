@@ -1,6 +1,6 @@
 library(shiny)
 
-source("./wordPredictor.R")
+source("wordPredictor.R")
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
