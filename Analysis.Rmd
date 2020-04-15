@@ -248,18 +248,6 @@ the corpus will be displayed.
 
 ```{r prepare-the-data-build-corpus, message = FALSE, echo = FALSE}
 library(tm)
-# download bad words file
-badWordsURL <- "http://www.idevelopment.info/data/DataScience/uploads/full-list-of-bad-words_text-file_2018_07_30.zip"
-badWordsFile <- "data/full-list-of-bad-words_text-file_2018_07_30.txt"
-if (!file.exists('data')) {
-    dir.create('data')
-}
-if (!file.exists(badWordsFile)) {
-    tempFile <- tempfile()
-    download.file(badWordsURL, tempFile)
-    unzip(tempFile, exdir = "data")
-    unlink(tempFile)
-}
 buildCorpus <- function (dataSet) {
     docs <- VCorpus(VectorSource(dataSet))
     toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
@@ -286,10 +274,10 @@ buildCorpus <- function (dataSet) {
 }
 # build the corpus and write to disk (RDS)
 corpus <- buildCorpus(sampleData)
-saveRDS(corpus, file = "data/final/en_US/en_US.corpus.rds")
+saveRDS(corpus, file = "final/en_US/en_US.corpus.rds")
 # convert corpus to a dataframe and write lines/words to disk (text)
 corpusText <- data.frame(text = unlist(sapply(corpus, '[', "content")), stringsAsFactors = FALSE)
-con <- file("data/final/en_US/en_US.corpus.txt", open = "w")
+con <- file("final/en_US/en_US.corpus.txt", open = "w")
 writeLines(corpusText$text, con)
 close(con)
 kable(head(corpusText$text, 10),
