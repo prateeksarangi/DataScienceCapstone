@@ -1,6 +1,6 @@
 ---
 title: "Capstone Course Project - Milestone Report"
-author: "Daniel DeWaters"
+author: "Prateek Sarangi"
 date: "12/19/2019"
 output: 
   html_document:
