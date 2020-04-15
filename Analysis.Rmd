@@ -248,6 +248,7 @@ the corpus will be displayed.
 
 ```{r prepare-the-data-build-corpus, message = FALSE, echo = FALSE}
 library(tm)
+badWordsFile <- "final/full-list-of-bad-words_text-file_2018_07_30.txt"
 buildCorpus <- function (dataSet) {
     docs <- VCorpus(VectorSource(dataSet))
     toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
