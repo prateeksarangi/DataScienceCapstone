@@ -1,495 +1,310 @@
 ---
-title: "Coursera Capstone Project Milestone Report"
-author: "Prateek Sarangi"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
-subtitle: Data Science Specialization from Johns Hopkins University
+title: "Final Capstone Project Johns Hopkins University MileStone Report"
+author: "Andrew Delos Santos"
+date: "11/22/2019"
+output: html_document
 ---
 
-## Synopsis
+###Abstract
 
-This is the Milestone Report for week 2 of the Coursera Data Science Capstone
-project.
+For this particular project, the goal is to develop a predictive text model from 
+a corpus of text documents provided by Swiftkey, the partner for this particular
+capstone. The project will go through the necessary procedures of having the data
+cleaned along with exploratory data analysis for this stage of the project. The 
+libraries that will help for this particular part of the project are the tm and 
+ngram packages in order to conduct n-gram data and to use tm function features.
+We first start with obtaining the data and cleaning it to make it cleaner.
 
-The objective of this report is to develop an understanding of the various
-statistical properties of the data set that can later be used when building the
-prediction model for the final data product - the Shiny application. Using 
-exploratory data analysis, this report describes the major features of the
-training data and then summarizes my plans for creating the predictive model.
+###Getting and Cleaning the Data
+I first loaded all the necessary packages and libraries. I then read the Twitter 
+data in via a connection and from there converted to lower case and split the 
+lines I needed to get rid of the punctuation. I also cleaned the data by removing 
+all non-alphanumeric characters before and after a word and removed blank spaces.
+Although there are two other text files that are provided in this capstone, I 
+thought it was a good idea to first analyze the twitter text data. 
 
-The model will be trained using a unified document corpus compiled from the
-following three sources of text data:
-
-1. Blogs
-2. News
-3. Twitter
-
-The provided text data are provided in four different languages. This project
-will only focus on the English corpora.
-
-## Environment Setup
-
-Prepare the session by loading initial packages and clearing the global
-workspace (including hidden objects).
-
-```{r load-packages, message = FALSE, echo = TRUE}
-library(knitr)
-rm(list = ls(all.names = TRUE))
-setwd("~/DataScienceCapstone")
-```
-
-```{r setup, include = FALSE}
-# set knitr options
-knitr::opts_chunk$set(echo = TRUE, fig.path = 'figures/')
-# free up memory and display statistics on free memory
-gc()
-# disable scientific notation for numbers
-options(scipen = 1)
-# detect OS
-switch(Sys.info()[['sysname']],
-    Windows = {os = "Microsoft Windows"},
-    Linux = {os = "Linux"},
-    Darwin = {os = "macOS"})
-# knit hook to allow partial output from a code chunk
-hook_output <- knit_hooks$get("output")
-knit_hooks$set(output = function(x, options) {
-  lines <- options$output.lines
-  if (is.null(lines)) {
-    return(hook_output(x, options)) # pass to default hook
-  }
-  x <- unlist(strsplit(x, "\n"))
-  more <- "..."
-  if (length(lines) == 1) { # first n lines
-    if (length(x) > lines) {
-      # truncate the output, but add ....
-      x <- c(head(x, lines), more)
-    }
-  } else {
-    x <- c(more, x[lines], more)
-  }
-  # paste these lines together
-  x <- paste(c(x, ""), collapse = "\n")
-  hook_output(x, options)
-})
-```
-
-## Load the Data
-
-Download, unzip and load the training data.
-
-```{r load-data, echo = TRUE}
-# blogs
-blogsFileName <- "final/en_US/en_US.blogs.txt"
-con <- file(blogsFileName, open = "r")
-blogs <- readLines(con, encoding = "UTF-8", skipNul = TRUE)
-close(con)
-# news
-newsFileName <- "final/en_US/en_US.news.txt"
-con <- file(newsFileName, open = "r")
-news <- readLines(con, encoding = "UTF-8", skipNul = TRUE)
-close(con)
-# twitter
-twitterFileName <- "final/en_US/en_US.twitter.txt"
-con <- file(twitterFileName, open = "r")
-twitter <- readLines(con, encoding = "UTF-8", skipNul = TRUE)
-close(con)
-rm(con)
-```
-
-## Basic Data Summary
-
-Prior to building the unified document corpus and cleaning the data, a basic
-summary of the three text corpora is being provided which includes file
-sizes, number of lines, number of characters, and number of words for each
-source file. Also included are basic statistics on the number of words per line
-(min, mean, and max).
-
-### Initial Data Summary
-
-```{r initial-data-summary-table, echo = FALSE, results = 'hold'}
-library(stringi)
-library(kableExtra)
-# assign sample size
-sampleSize = 0.01
-# file size
-fileSizeMB <- round(file.info(c(blogsFileName,
-                                newsFileName,
-                                twitterFileName))$size / 1024 ^ 2)
-# num lines per file
-numLines <- sapply(list(blogs, news, twitter), length)
-# num characters per file
-numChars <- sapply(list(nchar(blogs), nchar(news), nchar(twitter)), sum)
-# num words per file
-numWords <- sapply(list(blogs, news, twitter), stri_stats_latex)[4,]
-# words per line
-wpl <- lapply(list(blogs, news, twitter), function(x) stri_count_words(x))
-# words per line summary
-wplSummary = sapply(list(blogs, news, twitter),
-             function(x) summary(stri_count_words(x))[c('Min.', 'Mean', 'Max.')])
-rownames(wplSummary) = c('WPL.Min', 'WPL.Mean', 'WPL.Max')
-summary <- data.frame(
-    File = c("en_US.blogs.txt", "en_US.news.txt", "en_US.twitter.txt"),
-    FileSize = paste(fileSizeMB, " MB"),
-    Lines = numLines,
-    Characters = numChars,
-    Words = numWords,
-    t(rbind(round(wplSummary)))
-)
-kable(summary,
-      row.names = FALSE,
-      align = c("l", rep("r", 7)),
-      caption = "") %>% kable_styling(position = "left")
-```
-
-The source code for the above table is attached as [A.1 Basic Data Summary](#a.1-basic-data-summary) in the Appendix section.
-An initial investigation of the data shows that on average, each text corpora
-has a relatively low number of words per line. Blogs tend to have more words
-per line, followed by news and then twitter which has the least words per line.
-The lower number of words per line for the Twitter data is expected given that a
-tweet is limited to a certain number of characters. Even when Twitter doubled
-its character count from 140 to 280 characters in 2017, research shows that only
-1% of tweets hit the 280-character limit, and only 12% of tweets are longer than
-140 characters. Perhaps after so many years, users were simply trained to the
-140-character limit.
-
-Another important observation in this initial investigation shows that the text
-files are fairly large. To improve processing time, a sample size of
-`r round(sampleSize*100)`% will be obtained from all three data sets and then
-combined into a unified document corpus for subsequent analyses later in this
-report as part of preparing the data.
-
-### Histogram of Words per Line
-
-```{r initial-data-summary-plot, echo = FALSE, results = 'hold'}
-library(ggplot2)
-library(gridExtra)
-plot1 <- qplot(wpl[[1]],
-               geom = "histogram",
-               main = "US Blogs",
-               xlab = "Words per Line",
-               ylab = "Frequency",
-               binwidth = 5)
-plot2 <- qplot(wpl[[2]],
-               geom = "histogram",
-               main = "US News",
-               xlab = "Words per Line",
-               ylab = "Frequency",
-               binwidth = 5)
-plot3 <- qplot(wpl[[3]],
-               geom = "histogram",
-               main = "US Twitter",
-               xlab = "Words per Line",
-               ylab = "Frequency",
-               binwidth = 1)
-plotList = list(plot1, plot2, plot3)
-do.call(grid.arrange, c(plotList, list(ncol = 1)))
-# free up some memory
-rm(plot1, plot2, plot3)
-```
-
-The relatively low number of words in the three source files charted earlier
-in this section is also visible in the histogram plots shown above. This
-observation seems to support a general trend towards short and concise
-communications that may be useful later in the project.
-
-The source code for the above plot is attached as [A.2 Histogram of Words per Line](#a.2-histogram-of-words-per-line) in the Appendix section.
-
-## Prepare the Data
-
-```{r prepare-the-data-sample-and-clean, echo = FALSE}
-# set seed for reproducability
-set.seed(660067)
-# sample all three data sets
-sampleBlogs <- sample(blogs, length(blogs) * sampleSize, replace = FALSE)
-sampleNews <- sample(news, length(news) * sampleSize, replace = FALSE)
-sampleTwitter <- sample(twitter, length(twitter) * sampleSize, replace = FALSE)
-# remove all non-English characters from the sampled data
-sampleBlogs <- iconv(sampleBlogs, "latin1", "ASCII", sub = "")
-sampleNews <- iconv(sampleNews, "latin1", "ASCII", sub = "")
-sampleTwitter <- iconv(sampleTwitter, "latin1", "ASCII", sub = "")
-# combine all three data sets into a single data set and write to disk
-sampleData <- c(sampleBlogs, sampleNews, sampleTwitter)
-sampleDataFileName <- "final/en_US/en_US.sample.txt"
-con <- file(sampleDataFileName, open = "w")
-writeLines(sampleData, con)
-close(con)
-# get number of lines and words from the sample data set
-sampleDataLines <- length(sampleData);
-sampleDataWords <- sum(stri_count_words(sampleData))
-# remove variables no longer needed to free up memory
-rm(blogs, news, twitter, sampleBlogs, sampleNews, sampleTwitter)
-```
-
-Prior to performing exploratory data analysis, the three data sets will be
-sampled at `r round(sampleSize*100)`% to improve performance. All non-English
-characters will be removed from the subset of data and then combined into a
-single data set. The combined sample data set will be written to disk which
-contains
-`r format(round(as.numeric(sampleDataLines)), big.mark = ",")` 
-lines and
-`r format(round(as.numeric(sampleDataWords)), big.mark = ",")` 
-words.
-
-The next step is to create a corpus from the sampled data set. A custom
-function named `buildCorpus` will be employed to perform the following
-transformation steps for each document:
-
-1. Remove URL, Twitter handles and email patterns by converting them to spaces using a custom content transformer
-2. Convert all words to lowercase
-3. Remove common English stop words
-4. Remove punctuation marks
-5. Remove numbers
-6. Trim whitespace
-7. Remove profanity
-8. Convert to plain text documents
-
-The corpus will then be written to disk in two formats: a serialized R object
-in RDS format and as a text file. Finally, the first 10 documents (lines) from
-the corpus will be displayed.
-
-```{r prepare-the-data-build-corpus, message = FALSE, echo = FALSE}
+```{r echo = TRUE}
+##Load libraries and packages
 library(tm)
-badWordsFile <- "final/full-list-of-bad-words_text-file_2018_07_30.txt"
-
-buildCorpus <- function (dataSet) {
-    docs <- VCorpus(VectorSource(dataSet))
-    toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
-    
-    # remove URL, Twitter handles and email patterns
-    docs <- tm_map(docs, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+")
-    docs <- tm_map(docs, toSpace, "@[^\\s]+")
-    docs <- tm_map(docs, toSpace, "\\b[A-Z a-z 0-9._ - ]*[@](.*?)[.]{1,3} \\b")
-    
-    # remove profane words from the sample data set
-    con <- file(badWordsFile, open = "r")
-    profanity <- readLines(con, encoding = "UTF-8", skipNul = TRUE)
-    close(con)
-    profanity <- iconv(profanity, "latin1", "ASCII", sub = "")
-    docs <- tm_map(docs, removeWords, profanity)
-    
-    docs <- tm_map(docs, tolower)
-    docs <- tm_map(docs, removeWords, stopwords("english"))
-    docs <- tm_map(docs, removePunctuation)
-    docs <- tm_map(docs, removeNumbers)
-    docs <- tm_map(docs, stripWhitespace)
-    docs <- tm_map(docs, PlainTextDocument)
-    return(docs)
-}
-# build the corpus and write to disk (RDS)
-corpus <- buildCorpus(sampleData)
-saveRDS(corpus, file = "final/en_US/en_US.corpus.rds")
-# convert corpus to a dataframe and write lines/words to disk (text)
-corpusText <- data.frame(text = unlist(sapply(corpus, '[', "content")), stringsAsFactors = FALSE)
-con <- file("final/en_US/en_US.corpus.txt", open = "w")
-writeLines(corpusText$text, con)
-close(con)
-kable(head(corpusText$text, 10),
-      row.names = FALSE,
-      col.names = NULL,
-      align = c("l"),
-      caption = "First 10 Documents") %>% kable_styling(position = "left")
-# remove variables no longer needed to free up memory
-rm(sampleData)
-```
-
-The source code for preparing the data is attached as [A.3 Sample and Clean the Data](#a.3-sample-and-clean-the-data) and [A.4 Build Corpus](#a.4-build-corpus) in the Appendix section.
-
-## Exploratory Data Analysis
-
-Exploratory data analysis will be performed to fulfill the primary goal for
-this report. Several techniques will be employed to develop an understanding of
-the training data which include looking at the most frequently used words,
-tokenizing and n-gram generation.
-
-### Word Frequencies
-
-A bar chart and word cloud will be constructed to illustrate unique word
-frequencies.
-
-```{r exploratory-data-analysis-word-frequencies, message = FALSE, echo = FALSE}
-library(wordcloud)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+library(stopwords)
 library(RColorBrewer)
-tdm <- TermDocumentMatrix(corpus)
-freq <- sort(rowSums(as.matrix(tdm)), decreasing = TRUE)
-wordFreq <- data.frame(word = names(freq), freq = freq)
-# plot the top 10 most frequent words
-g <- ggplot (wordFreq[1:10,], aes(x = reorder(wordFreq[1:10,]$word, -wordFreq[1:10,]$fre),
-                                  y = wordFreq[1:10,]$fre ))
-g <- g + geom_bar( stat = "Identity" , fill = I("grey50"))
-g <- g + geom_text(aes(label = wordFreq[1:10,]$fre), vjust = -0.20, size = 3)
-g <- g + xlab("")
-g <- g + ylab("Word Frequencies")
-g <- g + theme(plot.title = element_text(size = 14, hjust = 0.5, vjust = 0.5),
-               axis.text.x = element_text(hjust = 0.5, vjust = 0.5, angle = 45),
-               axis.text.y = element_text(hjust = 0.5, vjust = 0.5))
-g <- g + ggtitle("10 Most Frequent Words")
-print(g)
-# construct word cloud
-suppressWarnings (
-    wordcloud(words = wordFreq$word,
-              freq = wordFreq$freq,
-              min.freq = 1,
-              max.words = 100,
-              random.order = FALSE,
-              rot.per = 0.35, 
-              colors=brewer.pal(8, "Dark2"))
-)
-# remove variables no longer needed to free up memory
-rm(tdm, freq, wordFreq, g)
+library(wordcloud)
+library(ngram)
+library(stringr)
+##Cleaning Data for the Twitter Data 
+#Read in the Twitter file and open as read only to read the lines
+#Close connection and make sure to split all punctuation 
+twitter_file <- "final/en_US/en_US.twitter.txt"
+twitter_connection <- file(twitter_file, "r")
+twitter_lines <- readLines(twitter_connection, skipNul = T)
+close(twitter_connection)
+twitter_lines_lower <- tolower(twitter_lines)
+twitter_lines_lower_updated <- unlist(strsplit(twitter_lines_lower, "[.,:;!?(){}<>]+"))
+#Take data and replace all non-alphanumeric with space at beginning/end of a word
+#Remove multiple spaces and spaces at the beginning and end of a line
+#Remove multiple spaces and then remove spaces at the beginning and end of line
+cleaned_twitter <- twitter_lines_lower_updated %>% 
+  {gsub("^[^a-z0-9]+|[^a-z0-9]+$", " ", twitter_lines_lower_updated)} %>% 
+  {gsub("[^a-z0-9]+\\s", " ", twitter_lines_lower_updated)} %>% 
+  {gsub("\\s[^a-z0-9]+", " ", twitter_lines_lower_updated)} %>% 
+  {gsub("\\s+", " ", twitter_lines_lower_updated)} %>% 
+  {str_trim(twitter_lines_lower_updated)}
+  head(cleaned_twitter, 20)
+#Save in an rds file
+saveRDS(cleaned_twitter, "cleaned_twitter.rds")
 ```
 
-The source code for the word frequency bar chart and constructing the work cloud is attached as [A.5 Word Frequencies](#a.5-word-frequencies) in the Appendix section.
+###Exploratory Data Analysis of N-gram models
+ 
+##1-Gram Exploratory Analysis
+I analyzed 1-gram models on the Twitter data and created exploratory graphs in 
+order to get a better picture of what was happening. I also then analyzed both 
+1-gram with and without stopwords. The findings were pretty interesting as a result.
+From the data, it was not surprising to find that the was the most common word
+with all stopwords and that just was the most common word without any stopwords. 
+Also, it was very interesting to see that as more words increased, the count of
+the top 250 words decreased. 
 
-### Tokenizing and N-Gram Generation
-
-The predictive model I plan to develop for the Shiny application will handle 
-uniqrams, bigrams, and trigrams. In this section, I will use the `RWeka` package
-to construct functions that tokenize the sample data and construct matrices of
-uniqrams, bigrams, and trigrams.
-
-```{r exploratory-data-analysis-tokenize, message = FALSE, echo = FALSE}
-library(RWeka)
-unigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 1, max = 1))
-bigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
-trigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 3, max = 3))
+```{r echo = TRUE}
+##1-Gram Exploratory Data Analysis with StopWords
+#Create a table of one-gram words and create a data frame of the data to easily 
+#pull elements from the data frame.
+one_gram <- unlist(strsplit(cleaned_twitter, "\\s+"))
+one_gram.frequency <- table(one_gram)
+one_gram_df <- cbind.data.frame(names(one_gram.frequency), as.integer(one_gram.frequency))
+names(one_gram_df) <- c("word", "frequency")
+row.names(one_gram_df) <- one_gram_df[,1]
+one_gram_df <- one_gram_df[order(-one_gram_df[["frequency"]]), ]
+#Look at the first 20 1-gram words and create exploratory graphs/visualizations
+head(one_gram_df, 20)
+one_gram_df["i'm", ]
+plot_one_gram <- ggplot(one_gram_df[1:20, ], aes(x = reorder(word, frequency), frequency)) + 
+geom_col() + xlab(NULL) + coord_flip() + 
+labs(title = "Twitter Top 20 Words (StopWords)", x = NULL, y = "Frequency")
+plot_one_gram
+plot(one_gram_df[1:500,][["frequency"]], xlab = "Top 500 Words", ylab = "Frequency")
+one_gram_histogram <- ggplot(one_gram_df[1:250, ], aes(x = one_gram_df[1:250,][["frequency"]])) +
+geom_histogram(colour = "black", fill = "red", bins = 50) + 
+labs(title = "Twitter Top 250 Words", x = "Word Frequency", y = "Count")
+one_gram_histogram
+saveRDS(one_gram_df, "one_gram_df.rds")
+#Data Cleaning No StopWords
+#Create function to see stopwords. Subset and obtain words from the column 
+#of the data frame and if it equals stop return the value then unlist the values
+#and create a new data frame to then see the 1-gram words that are not stopwords.
+f1 <- function(stop){
+  return(which(one_gram_df[["word"]] == stop))
+}
+x1 <- unlist(lapply(stopwords("en"), f1))
+one_gram_df_no_stop <- one_gram_df[-x1, ]
+head(one_gram_df_no_stop, 20)
+saveRDS(one_gram_df_no_stop, "one_gram_df_no_stop.rds")
+#Exploratory Data Analysis No StopWords
+ggplot(one_gram_df_no_stop[1:20, ], aes(x = reorder(word, frequency), frequency)) + 
+geom_col() + 
+xlab(NULL) + 
+coord_flip() + 
+labs(title = "Twitter Top 20 Words (No StopWords)", x = NULL, y = "Frequency")
+#Generate Word Clouds for StopWords/No StopWords
+set.seed(1234)
+wordcloud(words = one_gram_df[["word"]], freq = one_gram_df[["frequency"]], min.freq = 1, max.words = 200, random.order = F, rot.per = 0.35, colors = brewer.pal(8, "Dark2"))
+set.seed(1000)
+wordcloud(words = one_gram_df_no_stop[["word"]], freq = one_gram_df_no_stop[["frequency"]], min.freq = 1, max.words = 50, random.order = F, rot.per = 0.35, colors = brewer.pal(8, "Dark2"))
 ```
 
-#### Unigrams
-
-```{r exploratory-data-analysis-tokenize-unigrams, message = FALSE, echo = FALSE}
-# create term document matrix for the corpus
-unigramMatrix <- TermDocumentMatrix(corpus, control = list(tokenize = unigramTokenizer))
-# eliminate sparse terms for each n-gram and get frequencies of most common n-grams
-unigramMatrixFreq <- sort(rowSums(as.matrix(removeSparseTerms(unigramMatrix, 0.99))), decreasing = TRUE)
-unigramMatrixFreq <- data.frame(word = names(unigramMatrixFreq), freq = unigramMatrixFreq)
-# generate plot
-g <- ggplot(unigramMatrixFreq[1:20,], aes(x = reorder(word, -freq), y = freq))
-g <- g + geom_bar(stat = "identity", fill = I("grey50"))
-g <- g + geom_text(aes(label = freq ), vjust = -0.20, size = 3)
-g <- g + xlab("")
-g <- g + ylab("Frequency")
-g <- g + theme(plot.title = element_text(size = 14, hjust = 0.5, vjust = 0.5),
-               axis.text.x = element_text(hjust = 1.0, angle = 45),
-               axis.text.y = element_text(hjust = 0.5, vjust = 0.5))
-g <- g + ggtitle("20 Most Common Unigrams")
-print(g)
+##2-gram Exploratory Analysis
+For the 2-gram exploratory analysis, I found it very interesting how the length
+of the cleaned twitter lines was 5398325 lines long. Also, the top 2-gram phrase
+with stopwords was "in the". 
+```{r echo = TRUE}
+##2-Gram Exploratory Data Analysis StopWords
+#Repeat same steps as the 1-gram model.
+cleaned_twitter[1]
+twitter_final_two_gram <- cleaned_twitter[str_count(cleaned_twitter, "\\s+") > 0]
+length(cleaned_twitter)
+two_gram <- ngram(twitter_final_two_gram, n = 2)
+two_gram_df <- get.phrasetable(two_gram)
+head(two_gram_df, 20)
+ngrams <- two_gram_df[["ngrams"]]
+freq <- two_gram_df[["freq"]]
+ggplot(two_gram_df[1:20, ], aes(x = reorder(ngrams, freq), freq)) + 
+geom_col() + 
+xlab(NULL) + 
+coord_flip() + 
+labs(title = "Twitter Top 20 2-Grams (stopwords)", x = NULL, y = "Frequency")
+saveRDS(two_gram_df, "two_gram_df.rds")
 ```
 
-#### Bigrams
-
-```{r exploratory-data-analysis-tokenize-bigrams, message = FALSE, echo = FALSE}
-# create term document matrix for the corpus
-bigramMatrix <- TermDocumentMatrix(corpus, control = list(tokenize = bigramTokenizer))
-# eliminate sparse terms for each n-gram and get frequencies of most common n-grams
-bigramMatrixFreq <- sort(rowSums(as.matrix(removeSparseTerms(bigramMatrix, 0.999))), decreasing = TRUE)
-bigramMatrixFreq <- data.frame(word = names(bigramMatrixFreq), freq = bigramMatrixFreq)
-# generate plot
-g <- ggplot(bigramMatrixFreq[1:20,], aes(x = reorder(word, -freq), y = freq))
-g <- g + geom_bar(stat = "identity", fill = I("grey50"))
-g <- g + geom_text(aes(label = freq ), vjust = -0.20, size = 3)
-g <- g + xlab("")
-g <- g + ylab("Frequency")
-g <- g + theme(plot.title = element_text(size = 14, hjust = 0.5, vjust = 0.5),
-               axis.text.x = element_text(hjust = 1.0, angle = 45),
-               axis.text.y = element_text(hjust = 0.5, vjust = 0.5))
-g <- g + ggtitle("20 Most Common Bigrams")
-print(g)
+##3-gram Exploratory Analysis
+I then moved onto a 3-gram exploratory data analysis of the Twitter corpus. 
+I foudn out that the most common 3-gram with stopwords phrase was "thanks for the".
+```{r echo = TRUE}
+##3-gram Exploratory Data Analysis StopWords
+#Repeat the same steps again as the 1-gram and 2-gram models.
+twitter_final_three_gram <- cleaned_twitter[str_count(cleaned_twitter, "\\s+") > 1]
+length(cleaned_twitter)
+three_gram <- ngram(twitter_final_three_gram, n = 3)
+three_gram_df <- get.phrasetable(three_gram)
+head(three_gram_df, 20)
+ngrams <- three_gram_df[["ngrams"]]
+freq <- three_gram_df[["freq"]]
+ggplot(three_gram_df[1:20, ], aes(x = reorder(ngrams, freq), freq)) + 
+geom_col() + xlab(NULL) + coord_flip() + 
+labs(title = "Twitter Top 20 3-Grams (stopwords)", x = NULL, y = "Frequency")
+saveRDS(three_gram_df, "three_gram_df.rds")
 ```
 
-#### Trigrams
-
-```{r exploratory-data-analysis-tokenize-trigrams, message = FALSE, echo = FALSE}
-# create term document matrix for the corpus
-trigramMatrix <- TermDocumentMatrix(corpus, control = list(tokenize = trigramTokenizer))
-# eliminate sparse terms for each n-gram and get frequencies of most common n-grams
-trigramMatrixFreq <- sort(rowSums(as.matrix(removeSparseTerms(trigramMatrix, 0.9999))), decreasing = TRUE)
-trigramMatrixFreq <- data.frame(word = names(trigramMatrixFreq), freq = trigramMatrixFreq)
-# generate plot
-g <- ggplot(trigramMatrixFreq[1:20,], aes(x = reorder(word, -freq), y = freq))
-g <- g + geom_bar(stat = "identity", fill = I("grey50"))
-g <- g + geom_text(aes(label = freq ), vjust = -0.20, size = 3)
-g <- g + xlab("")
-g <- g + ylab("Frequency")
-g <- g + theme(plot.title = element_text(size = 14, hjust = 0.5, vjust = 0.5),
-               axis.text.x = element_text(hjust = 1.0, angle = 45),
-               axis.text.y = element_text(hjust = 0.5, vjust = 0.5))
-g <- g + ggtitle("20 Most Common Trigrams")
-print(g)
+##2-gram and 3-gram Exploratory Analysis No Stopwords
+After viewing all 1-gram, 2-gram, and 3-gram analysis with stopwords, I thought
+it would be interesting to view the data with no stopwords. This particular part 
+of the project took a long time as it was reading throughout the text to apply
+the function I created to read for stopwords. 
+```{r echo = TRUE}
+#Create function to read for stopwords in english
+twitter_function <- function(x){
+ removeWords(x, stopwords("en"))
+  }
+final_twitter_lines <- unlist(lapply(cleaned_twitter, twitter_function))
+final_twitter_lines <- str_trim(final_twitter_lines)
+final_twitter_lines <- gsub("\\s+", " ", final_twitter_lines)
+final_twitter_lines <- final_twitter_lines[nchar(final_twitter_lines) > 0]
+length(final_twitter_lines)
+##2-Gram No StopWords
+twitter_final_lines_2 <- final_twitter_lines[str_count(final_twitter_lines, "\\s+") > 0]
+length(twitter_final_lines_2)
+two_gram_no_stop <- ngram(twitter_final_lines_2, n = 2)
+two_gram_df_no_stop <- get.phrasetable(two_gram_no_stop)
+head(two_gram_df_no_stop, 20)
+ngrams <- two_gram_df_no_stop[["ngrams"]]
+freq <- two_gram_df_no_stop[["freq"]]
+ggplot(two_gram_df_no_stop[1:20, ], aes(x = reorder(ngrams, freq), freq)) + 
+geom_col() + 
+xlab(NULL) + 
+coord_flip() + 
+labs(title = "Twitter Top 20 2-Grams (No Stopwords)", x = NULL, y = "Frequency")
+##3-Gram No StopWords
+final_twitter_lines_3 <- final_twitter_lines[str_count(final_twitter_lines, "\\s+") > 1]
+length(final_twitter_lines) 
+three_gram_no_stop <- ngram(final_twitter_lines_3, n = 3)
+three_gram_df_no_stop <- get.phrasetable(three_gram_no_stop)
+head(three_gram_df_no_stop, 20)
+ngrams <- three_gram_df_no_stop[["ngrams"]]
+freq <- three_gram_df_no_stop[["freq"]]
+ggplot(three_gram_df_no_stop[1:20, ], aes(x = reorder(ngrams, freq), freq)) + 
+geom_col() + xlab(NULL) + coord_flip() + 
+labs(title = "Twitter Top 20 3-Grams (No Stopwords)", x = NULL, y = "Frequency")
+saveRDS(two_gram_df_no_stop, "2-gram_no_stop.rds")
+saveRDS(three_gram_df_no_stop, "3-gram_no_stop.rds")
 ```
 
-The source code for this section is attached as [A.6 Tokenizing and N-Gram Generation](#a.6-tokenizing-and-n-gram-generation) in the Appendix section.
-
-## Way Forward
-
-The final deliverable in the capstone project is to build a predictive algorithm
-that will be deployed as a Shiny app for the user interface. The Shiny app
-should take as input a phrase (multiple words) in a text box input and output a
-prediction of the next word.
-
-The predictive algorithm will be developed using an n-gram model with a
-word frequency lookup similar to that performed in the exploratory data analysis
-section of this report. A strategy will be built based on the knowledge 
-gathered during the exploratory analysis. For example, as n increased for
-each n-gram, the frequency decreased for each of its terms. So one possible
-strategy may be to construct the model to first look for the unigram that would
-follow from the entered text. Once a full term is entered followed by a space,
-find the most common bigram model and so on.
-
-Another possible strategy may be to predict the next word using the trigram
-model. If no matching trigram can be found, then the algorithm would check the
-bigram model. If still not found, use the unigram model.
-
-The final strategy will be based on the one that increases efficiency and
-provides the best accuracy.
-
-## Appendix
-
-### A.1 Basic Data Summary
-
-Basic summary of the three text corpora.
-
-```{r initial-data-summary-table-appendix, ref.label = 'initial-data-summary-table', echo = TRUE, eval = FALSE}
+##Distinct Number of Words to cover the Text
+```{r echo = TRUE}
+#Use the 1-gram
+head(one_gram_df, 20)
+one_gram_df[["count"]] <- 1
+one_gram_df[["count"]] <- cumsum(one_gram_df[["count"]])
+one_gram_df[["coverage"]] <- cumsum(one_gram_df[["frequency"]]) / sum(one_gram_df[["frequency"]]) * 100
+one_gram_df_cover <- one_gram_df[one_gram_df[["coverage"]] <= 91,]
+head(one_gram_df_cover, 5)
+data_points <- rbind(tail(one_gram_df_cover[one_gram_df_cover[["coverage"]] <= 50, ], 1), tail(one_gram_df_cover[one_gram_df_cover[["coverage"]] <= 90, ], 1))
+plot(one_gram_df_cover[["coverage"]], main = "Number of Words Covering Twitter Text File", xlab = "# of Words", ylab = "% of Covered Twitter Text")
+saveRDS(one_gram_df_cover, "one_gram_df_cover.rds")
 ```
 
-### A.2 Histogram of Words per Line
-
-Histogram of words per line for the three text corpora.
-
-```{r initial-data-summary-plot-appendix, ref.label = 'initial-data-summary-plot', echo = TRUE, eval = FALSE}
+##1-Gram US News and US Blogs with StopWords Cleaning and Exploratory Analysis
+From the findings, they were very similar to that of the Twitter text data which 
+should be the case. 
+```{r echo = TRUE}
+#US News Cleaning Data
+#Repeat similar steps as Twitter text data except now for other two texts
+us_news <- file("final/en_US/en_US.news.txt", "r")
+us_news_lines <- readLines(us_news, skipNul = T)
+close(us_news)
+lower_us_news <- tolower(us_news_lines)
+lower_us_news_updated <- unlist(strsplit(lower_us_news, "[.,:;!?(){}<>]+"))
+cleaned_us_news <- lower_us_news_updated %>% 
+  {gsub("^[^a-z0-9]+|[^a-z0-9]+$", " ", lower_us_news_updated)} %>% 
+  {gsub("[^a-z0-9]+\\s", " ", lower_us_news_updated)} %>% 
+  {gsub("\\s[^a-z0-9]+", " ", lower_us_news_updated)} %>% 
+  {gsub("\\s+", " ", lower_us_news_updated)} %>% 
+  {str_trim(lower_us_news_updated)}
+  head(cleaned_us_news, 20)
+saveRDS(cleaned_us_news, "cleaned_us_news.rds")
+#US News 1-Gram 
+one_gram_us_news <- unlist(strsplit(cleaned_us_news, "\\s+"))
+one_gram.frequency_news <- table(one_gram_us_news)
+one_gram_df_news <- cbind.data.frame(names(one_gram.frequency_news), as.integer(one_gram.frequency_news))
+names(one_gram_df_news) <- c("words", "freq")
+row.names(one_gram_df_news) <- one_gram_df_news[,1]
+one_gram_df_news <- one_gram_df_news[order(-one_gram_df_news[["freq"]]), ]
+head(one_gram_df_news, 20)
+one_gram_df_news["i'm", ]
+plot_one_gram_df_news <- ggplot(one_gram_df_news[1:20, ], aes(x = reorder(words, freq), freq)) + 
+geom_col() + xlab(NULL) + coord_flip() + 
+labs(title = "US News Top 20 Words (StopWords)", x = NULL, y = "Frequency")
+plot_one_gram_df_news
+plot(one_gram_df_news[1:500,][["freq"]], xlab = "Top 500 Words", ylab = "Frequency")
+one_gram_histogram_news <- ggplot(one_gram_df_news[1:250, ], aes(x = one_gram_df_news[1:250,][["freq"]])) + 
+geom_histogram(colour = "black", fill = "red", bins = 50) + 
+labs(title = "US News Top 250 Words", x = "Word Frequency", y = "Count")
+one_gram_histogram_news
+set.seed(1234)
+wordcloud(words = one_gram_df_news[["words"]], freq = one_gram_df_news[["freq"]], min.freq = 1, max.words = 200, random.order = F, rot.per = 0.35, colors = brewer.pal(8, "Dark2"))
+saveRDS(one_gram_df_news, "US_News_One_Gram.rds")
+#US Blogs Cleaning Data
+us_blogs <- file("final/en_US/en_US.blogs.txt", "r")
+us_blogs_lines <- readLines(us_blogs, skipNul = T)
+close(us_blogs)
+lower_us_blogs <- tolower(us_blogs)
+lower_us_blogs_updated <- unlist(strsplit(lower_us_news, "[.,:;!?(){}<>]+"))
+cleaned_us_blogs <- lower_us_blogs_updated %>% 
+  {gsub("^[^a-z0-9]+|[^a-z0-9]+$", " ", lower_us_blogs_updated)} %>% 
+  {gsub("[^a-z0-9]+\\s", " ", lower_us_blogs_updated)} %>% 
+  {gsub("\\s[^a-z0-9]+", " ", lower_us_blogs_updated)} %>% 
+  {gsub("\\s+", " ", lower_us_blogs_updated)} %>% 
+  {str_trim(lower_us_blogs_updated)}
+  head(cleaned_us_blogs, 20)
+saveRDS(cleaned_us_blogs, "cleaned_us_blogs.rds")
+#US Blogs 1-Gram
+one_gram_us_blogs <- unlist(strsplit(cleaned_us_blogs, "\\s+"))
+one_gram.frequency_blogs <- table(one_gram_us_blogs)
+one_gram_df_blogs <- cbind.data.frame(names(one_gram.frequency_blogs), as.integer(one_gram.frequency_blogs))
+names(one_gram_df_blogs) <- c("wrds", "frq")
+row.names(one_gram_df_blogs) <- one_gram_df_blogs[,1]
+one_gram_df_blogs <- one_gram_df_blogs[order(-one_gram_df_blogs[["frq"]]), ]
+head(one_gram_df_blogs, 20)
+one_gram_df_blogs["i'm", ]
+plot_one_gram_df_blogs <- ggplot(one_gram_df_blogs[1:20, ], aes(x = reorder(wrds, frq), frq)) + 
+geom_col() + 
+xlab(NULL) + 
+coord_flip() + 
+labs(title = "US Blogs Top 20 Words (StopWords)", x = NULL, y = "Frequency")
+plot_one_gram_df_blogs
+plot(one_gram_df_blogs[1:500,][["frq"]], xlab = "Top 500 Words", ylab = "Frequency")
+one_gram_histogram_blogs <- ggplot(one_gram_df_blogs[1:250, ], aes(x = one_gram_df_blogs[1:250,][["frq"]])) + 
+geom_histogram(colour = "black", fill = "red", bins = 50) + 
+labs(title = "US Blogs Top 250 Words", x = "Word Frequency", y = "Count")
+one_gram_histogram_news
+set.seed(1234)
+wordcloud(words = one_gram_df_blogs[["wrds"]], freq = one_gram_df_blogs[["frq"]], min.freq = 1, max.words = 200, random.order = F, rot.per = 0.35, colors = brewer.pal(8, "Dark2"))
+saveRDS(one_gram_df_blogs, "US_Blogs_One_Gram.rds")
 ```
 
-### A.3 Sample and Clean the Data
-
-```{r prepare-the-data-sample-and-clean-appendix, ref.label = 'prepare-the-data-sample-and-clean', echo = TRUE, eval = FALSE}
-```
-
-### A.4 Build Corpus
-
-```{r prepare-the-data-build-corpus-appendix, ref.label = 'prepare-the-data-build-corpus', echo = TRUE, eval = FALSE}
-```
-
-### A.5 Word Frequencies
-
-```{r exploratory-data-analysis-word-frequencies-appendix, ref.label = 'exploratory-data-analysis-word-frequencies', echo = TRUE, eval = FALSE}
-```
-
-### A.6 Tokenizing and N-Gram Generation
-
-**Tokenize Functions**
-
-```{r exploratory-data-analysis-tokenize-appendix, ref.label = 'exploratory-data-analysis-tokenize', echo = TRUE, eval = FALSE}
-```
-
-**Unigrams**
-
-```{r exploratory-data-analysis-tokenize-unigrams-appendix, ref.label = 'exploratory-data-analysis-tokenize-unigrams', echo = TRUE, eval = FALSE}
-```
-
-**Bigrams**
-
-```{r exploratory-data-analysis-tokenize-bigrams-appendix, ref.label = 'exploratory-data-analysis-tokenize-bigrams', echo = TRUE, eval = FALSE}
-```
-
-**Trigrams**
-
-```{r exploratory-data-analysis-tokenize-trigrams-appendix, ref.label = 'exploratory-data-analysis-tokenize-trigrams', echo = TRUE, eval = FALSE}
+##RDS File References 
+```{r echo = TRUE}
+saveRDS(cleaned_twitter, "cleaned_twitter.rds")
+saveRDS(one_gram_df, "one_gram_df.rds")
+saveRDS(one_gram_df_no_stop, "one_gram_df_no_stop.rds")
+saveRDS(two_gram_df, "two_gram_df.rds")
+saveRDS(three_gram_df, "three_gram_df.rds")
+saveRDS(two_gram_df_no_stop, "2-gram_no_stop.rds")
+saveRDS(three_gram_df_no_stop, "3-gram_no_stop.rds")
+saveRDS(one_gram_df_cover, "one_gram_df_cover.rds")
+saveRDS(cleaned_us_news, "cleaned_us_news.rds")
+saveRDS(one_gram_df_news, "US_News_One_Gram.rds")
+saveRDS(cleaned_us_blogs, "cleaned_us_blogs.rds")
+saveRDS(one_gram_df_blogs, "US_Blogs_One_Gram.rds")
 ```
