@@ -3,25 +3,6 @@ title: "Coursera Capstone Project Milestone Report"
 subtitle: "Data Science Specialization from Johns Hopkins University"
 author: "Jeffrey M. Hunter"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output:
-  html_document:
-    toc: yes
-    toc_float: yes
-    theme: cosmo
-    keep_md: no
-    df_print: paged
-    css: css/custom.css
-  pdf_document:
-    toc: yes
-    df_print: kable
-    number_sections: false
-    fig_caption: yes
-    highlight: tango
-    dev: pdf
-  word_document:
-    toc: yes
-    df_print: paged
-    keep_md: no
 ---
 
 ## Synopsis
