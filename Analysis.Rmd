@@ -1,8 +1,8 @@
 ---
 title: "Coursera Capstone Project Milestone Report"
-subtitle: "Data Science Specialization from Johns Hopkins University"
 author: "Jeffrey M. Hunter"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
+subtitle: Data Science Specialization from Johns Hopkins University
 ---
 
 ## Synopsis
@@ -208,7 +208,7 @@ sampleNews <- iconv(sampleNews, "latin1", "ASCII", sub = "")
 sampleTwitter <- iconv(sampleTwitter, "latin1", "ASCII", sub = "")
 # combine all three data sets into a single data set and write to disk
 sampleData <- c(sampleBlogs, sampleNews, sampleTwitter)
-sampleDataFileName <- "data/final/en_US/en_US.sample.txt"
+sampleDataFileName <- "final/en_US/en_US.sample.txt"
 con <- file(sampleDataFileName, open = "w")
 writeLines(sampleData, con)
 close(con)
