@@ -1,215 +1,216 @@
 ---
-title: "Milestone Report"
-subtitle: "Natural Language Processing Data Exploratory Analysis"
-author: "Daniel Rimdzius"
-date: "1/28/2020"
-output: html_document
+title: "Capstone Course Project - Milestone Report"
+author: "Daniel DeWaters"
+date: "12/19/2019"
+output: 
+  html_document:
+    toc: true
+    top_depth: 2
+    toc_float: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, cache = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE)
+library(tm)
+library(slam)
+library(dplyr)
+library(readr)
+library(RWeka)
+library(ggplot2)
+library(R.utils)
+library(wordcloud)
 ```
 
-# Summary
-This report covers the Exploratory analysis of the data for the capstone project:
-a predictive text app using Shiny. The primary finding is that not all of the
-data will be needed to provide coverage. There is an exponential relationship
-between the amount of frequency coverage and the number of unique words.
+# Executive Summary
 
+This milestone report serves to show my progress with the final project for the capstone course in the data science specialization provided by Johns Hopkins University on Coursera. I will perform an exploratory data analysis to learn the structure of the data set we will be using for the final project.
 
-# Read Data into R
+# Getting and Reading the Data
 
-```{r LIBRARIES}
-library("readr")
-library("ggplot2")
-library("dplyr")
-library("quanteda")
-library("ngram")
-```  
+First we should read in the data. I use guess_encoding() here to make sure the files are read in with the proper encoding.
 
-I will begin by reading the txt files into R, using readr's read_lines(). This
-was the easiest function, with no errors, after trying several others.
-```{r READ}
-blog <- read_lines("final/en_US/en_US.blogs.txt")
-news <- read_lines("final/en_US/en_US.news.txt")
-twitter <- read_lines("final/en_US/en_US.twitter.txt")
-```  
-
-Below we can see the basic stats of these files.
-```{r STATS}
-stats <- data.frame(source=c("Blog","News","Twitter"),
-           file_size = c(file.size("final/en_US/en_US.blogs.txt")/1024^2,
-                        file.size("final/en_US/en_US.news.txt")/1024^2,
-                        file.size("final/en_US/en_US.twitter.txt")/1024^2),
-           word_count = sapply(list(blog, news, twitter), wordcount),
-           line_count = c(length(blog), length(news), length(twitter)),
-           char_count = c(sum(nchar(blog)), sum(nchar(news)), sum(nchar(twitter))))
-names(stats) <- c("Source", "File Size (MB)", "Word Count", "Line Count", "Character Count")
-stats
+```{r readData, cache=TRUE}
+# Get directories of the data files that we want to read
+us_blogs_dir <- "final/en_us/en_US.blogs.txt"
+us_news_dir <- "final/en_us/en_US.news.txt"
+us_twitter_dir <- "final/en_us/en_US.twitter.txt"
+# Guess encoding for each file
+us_blogs_encoding <- guess_encoding(us_blogs_dir, n_max=1000)$encoding[1]
+us_news_encoding <- guess_encoding(us_news_dir, n_max=1000)$encoding[1]
+us_twitter_encoding <- guess_encoding(us_twitter_dir, n_max=1000)$encoding[1]
+# Read in files line by line
+us_blogs <- readLines(us_blogs_dir, encoding=us_blogs_encoding, warn=FALSE)
+us_news <- readLines(us_news_dir, encoding=us_news_encoding, warn=FALSE)
+us_twitter <- readLines(us_twitter_dir, encoding=us_twitter_encoding, warn=FALSE)
 ```
 
-I will then sample 10% of these data as a sufficiently large dataset to explore.
-```{r SAMPLE}
-set.seed(123)
-sample_blog <- blog[sample(length(blog), length(blog)*0.1)]
-sample_news <- news[sample(length(news), length(news)*0.1)]
-sample_twitter <- twitter[sample(length(twitter), length(twitter)*0.1)]
-```  
-Using the quanteda package, I create a corpus for each dataset, and include a
-"source" value to indicate where that text came from. Then it is combined into 
-a single corpus.
-```{r CORPUS}
-blog_corpus <- corpus(sample_blog)
-docvars(blog_corpus, "Source") <- "blog"
-news_corpus <- corpus(sample_news)
-docvars(news_corpus, "Source") <- "news"
-twitter_corpus <- corpus(sample_twitter)
-docvars(twitter_corpus, "Source") <- "twitter"
-combined_corpus <- blog_corpus + news_corpus + twitter_corpus
-```  
-Finally, the datasets are all removed, except for the combined corpus, to help
-clear some RAM space.
-```{r REMOVE}
-rm(stats, blog, news, twitter, 
-   sample_blog, sample_news, sample_twitter, 
-   blog_corpus, news_corpus, twitter_corpus)
-```  
+# File Statistics
 
+As an initial exploratory measure, I'll get the sizes and number on lines in each file.
 
-# Clean Datasets
-To clean the data, I create a token set. I have removed numbers, punctuation,
-and stopwords. I took the stem of each word (running & runs are both changed
-into "run" and analyzed together). and everything is changed to lowercase.
-```{r TOKENS}
-token <- tokens(combined_corpus, remove_numbers = TRUE, remove_punct = TRUE)
-token <- tokens_select(token, stopwords("english"), selection = "remove")
-token <- tokens_wordstem(token)
-token <- tokens_tolower(token)
-```  
-Finally, I created two Document Feature Matrices (a matrix of each unique word
-as a column, and each text entry as a row).  The first is the basic DFM. The
-second is a DFM grouped by source (twitter/news/blog).
-```{r DFM}
-dfm <- dfm(token)
-dfm_source <- dfm(token, groups = "Source")
-```  
-
-
-# Explore Data Structure
-I will start with high level understanding of the data. The following code shows
-the  overall structure of the text.
-```{r STRUCTURE}
-dfm
-dfm_source
-dfm_source[,1:10]
-```  
-Below, we can see the top features of these data. The most common words by
-themselves, as well as grouped by source. A word cloud is also shown below (the
-more common a word, the larger it will appear.)
-```{r TOP}
-topfeatures(dfm)
-dfm_sort(dfm_source)[,1:10]
-textplot_wordcloud(dfm, color = rev(RColorBrewer::brewer.pal(5, "RdYlBu")))
-```  
-
-
-# Exploratory Analysis
-There were several questions posed to consider with respect to this data. I will
-go over each of them below.
-
-
-### QUESTION 1: Some words are more frequent than others - what are the distributions of word frequencies?
-A bar graph of the top frequencies is shown below.
-```{r Q1}
-data.frame("names" = names(topfeatures(dfm, n=40)), "count" = unname(topfeatures(dfm, n=40))) %>%
-      ggplot(aes(x=reorder(names, -count), y=count)) + geom_col() +
-      labs(x = "", y = "Freqeuncy", title = "Frequency of the Most Common Words") +
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-```  
-
-
-### QUESTION 2: What are the frequencies of 2-grams and 3-grams in the dataset?
-N-grams are basically word phrases, so a 2-gram is two words back-to-back. The
-function below takes a value for n and plots a bargraph showing the frequencies
-of the top 40 "n"-grams.
-```{r NGRAM}
-ngram <- function(n=1){
-      ngram_tok <- tokens_ngrams(token, n)
-      ngram_dfm <- dfm(ngram_tok)
-      ngram <- data.frame(names = colnames(ngram_dfm), frequency = colSums(ngram_dfm))
-            ngram$names <- as.character(ngram$names)
-            rownames(ngram) <- c()
-            ngram <- arrange(ngram, desc(frequency))[1:40,]
-      ggplot(ngram, aes(x=reorder(names, -frequency), y=frequency)) + geom_col() +
-            labs(x = "", y = "Frequency", title = paste0("Frequency of ",n,"-gram Sets")) +
-            theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-}
-```  
-Then we can plot this data below. Note that I already have a "1-gram" plot above, 
-showing the frequency of the most common single words.
-```{r NGRAMPLOT}
-ngram(2)
-ngram(3)
-```  
-
-
-
-### QUESTION 3: How many unique words do you need in a frequency sorted dictionary to cover 50% of all word instances in the language? 90%?
-Below is a function to calculate the number of unique words required
-```{r UNIQUE}
-uniqueWords <- function(coverage) {
-      data <- data.frame(names = colnames(dfm), frequency = colSums(dfm))
-            data$names <- as.character(data$names)
-            rownames(data) <- c()
-      x <- 0
-      for(i in 1:nrow(data)) {
-            x <- x + data$frequency[i]
-            if (x >= sum(data$frequency)*coverage){ return(i) }
-      }
-      return(i)
-}
-fifty_percent <- uniqueWords(0.5)
-fifty_percentage <- round(fifty_percent/ncol(dfm)*100,1)
-ninety_percent <- uniqueWords(0.9)
-ninety_percentage <- round(ninety_percent/ncol(dfm)*100,1)
+```{r fileStats, cache=TRUE}
+# calculate file sizes in MB
+blogs_file_size <- file.info(us_blogs_dir)$size/(1024^2)
+news_file_size <- file.info(us_news_dir)$size/(1024^2)
+twitter_file_size <- file.info(us_twitter_dir)$size/(1024^2)
+# Combine file sizes
+file_sizes <- rbind(blogs_file_size, news_file_size, twitter_file_size)
+# Count number of lines in each file
+blogs_file_lines <- countLines(us_blogs_dir)
+news_file_lines <- countLines(us_news_dir)
+twitter_file_lines <- countLines(us_twitter_dir)
+# Combine number of lines
+num_lines <- rbind(blogs_file_lines, news_file_lines, twitter_file_lines)
+# Combine file encodings
+encodings <- rbind(us_blogs_encoding, us_news_encoding, us_twitter_encoding)
+# Combine both stats
+file_stats <- as.data.frame(cbind(file_sizes, num_lines, encodings))
+colnames(file_stats) <- c("File Size (in MB)","Number of Lines", "File Encoding")
+rownames(file_stats) <- c("Blogs", "News", "Twitter")
+file_stats
 ```
-You need `r fifty_percent` words (~`r fifty_percentage`%) to cover 50%.  
-You need `r ninety_percent` words (~`r ninety_percentage`%) to cover 90%.
 
+# Sampling
 
-### QUESTION 4: How do you evaluate how many of the words come from foreign languages?
-It should not matter. If enough American-English speakers type "Buenos dias", then it effectively becomes a part of american english speech, and should be used in predicting text. Just because words may be from another language should not preclude them from the analysis.
+These data sets are very large so we have to take samples from them to make the data managable.
 
-Also, modern languages all borrow words from foreign languages, and it is difficult if not impossible to sort through all of that.
+```{r sampling, cache=TRUE}
+# Set seed
+set.seed(12345)
+# Grab samples from raw data
+blogs_sample <- sample(us_blogs, size=10000)
+news_sample <- sample(us_news, size=10000)
+twitter_sample <- sample(us_twitter, size=10000)
+```
 
-However, we could use the UTF symbols - if a word contains a certain type of symbol that is not included in en_US, the word is likely not part of the American English language.
+# Corpus
 
+Now we can combine the samples into a single text corpus
 
-### QUESTION 5: Can you think of a way to increase the coverage -- identifying words that may not be in the corpora or using a smaller number of words in the dictionary to cover the same number of phrases?
-This is an extension of question 3, in which we look at the frequency-based coverage.
-We can extend that discussion by looking at a graph of that data:
-```{r COVERAGE}
-coverage <- c(seq(0, 0.9, 0.1),0.95, 0.99, 1)
-unique_words <- c(1:length(coverage))
-for (i in 1:length(coverage)){
-      unique_words[i] <- uniqueWords(coverage[i])
+```{r corpus, cache=TRUE}
+# Combine sample sets to create corpus for training
+corpus_raw <- c(blogs_sample, news_sample, twitter_sample)
+```
+
+## Memory Usage
+
+The raw data from the previous steps takes up quite a bit of memory so let's remove them to free up some space.
+
+```{r cleanMemory}
+# Remove raw-er data sets
+rm(us_blogs, blogs_sample,
+   us_news, news_sample,
+   us_twitter, twitter_sample)
+```
+
+## Cleaning
+
+Now we can remove some unwanted words and punctutation characters. Let's make a function that will make things easier.
+
+```{r cleaningFunctions}
+# changes special characters to a space character
+change_to_space <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+```
+
+Begin cleaning!
+
+```{r cleanCorpus, cache=TRUE}
+# Remove non-ASCII characters
+corpus <- iconv(corpus_raw, "UTF-8", "ASCII", sub="")
+# Make corpus
+corpus <- VCorpus(VectorSource(corpus))
+## Begin cleaning
+# Lowercase all characters
+corpus <- tm_map(corpus, content_transformer(tolower))
+# Strip whitespace
+corpus <- tm_map(corpus, stripWhitespace)
+# Remove numbers
+corpus <- tm_map(corpus, removeNumbers)
+# Remove punctuation characters
+corpus <- tm_map(corpus, removePunctuation)
+# Remove other characters
+corpus <- tm_map(corpus, change_to_space, "/|@|\\|")
+# Remove stop words
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+```
+
+# Tokenization
+
+Now we can create our N-gram models. For our purposes we will only go up to trigrams.
+
+```{r tokenization, cache=TRUE}
+delims <- " \\r\\n\\t.,;:\"()?!"
+tokenize_uni <- function(x){NGramTokenizer(x, Weka_control(min=1, max=1, delimiters=delims))}
+tokenize_bi  <- function(x){NGramTokenizer(x, Weka_control(min=2, max=2, delimiters=delims))}
+tokenize_tri <- function(x){NGramTokenizer(x, Weka_control(min=3, max=3, delimiters=delims))}
+unigram <- TermDocumentMatrix(corpus, control=list(tokenize=tokenize_uni))
+bigram  <- TermDocumentMatrix(corpus, control=list(tokenize=tokenize_bi ))
+trigram <- TermDocumentMatrix(corpus, control=list(tokenize=tokenize_tri))
+```
+
+# Exploratory Data Analysis
+
+Let's count up our most frequent tokens from each N-gram.
+
+```{r nGramHistogram, cache=TRUE}
+# Transform N-grams structure to pull out token frequencies
+unigram_r <- rollup(unigram, 2, na.rm = TRUE, FUN = sum)
+ bigram_r <- rollup( bigram, 2, na.rm = TRUE, FUN = sum)
+trigram_r <- rollup(trigram, 2, na.rm = TRUE, FUN = sum)
+# Get token frequencies of each N-gram
+unigram_tokens_counts <- data.frame(Token = unigram$dimnames$Terms, Frequency = unigram_r$v)
+ bigram_tokens_counts <- data.frame(Token =  bigram$dimnames$Terms, Frequency =  bigram_r$v)
+trigram_tokens_counts <- data.frame(Token = trigram$dimnames$Terms, Frequency = trigram_r$v)
+# Sort tokens by frequency
+unigram_sorted <- arrange(unigram_tokens_counts, desc(Frequency))
+ bigram_sorted <- arrange( bigram_tokens_counts, desc(Frequency))
+trigram_sorted <- arrange(trigram_tokens_counts, desc(Frequency))
+# Save sorted data for word prediction later
+save(unigram_sorted, file = "ngrams/unigram.RData")
+save( bigram_sorted, file = "ngrams/bigram.RData" )
+save(trigram_sorted, file = "ngrams/trigram.RData")
+# Filter top 100 most frequent
+top_unigram <- top_n(unigram_sorted, 100, Frequency)
+ top_bigram <- top_n( bigram_sorted, 100, Frequency)
+top_trigram <- top_n(trigram_sorted, 100, Frequency)
+```
+
+## Barplots of Token Frequency
+
+Finally, we can make some barplots showing the frequencies of the most common tokens in each N-gram.
+
+```{r Barplots}
+make_ngram_barplot <- function(x, top_n, n, color){
+  main_title <- paste("Top", as.character(top_n), "most frequent", n)
+  ggplot(x[1:top_n,], aes(reorder(Token, -Frequency), Frequency)) +
+    geom_bar(stat="identity", fill=I(color)) +
+    labs(x=n, y="Frequency") + ggtitle(main_title) +
+    theme(axis.text.x = element_text(angle = 60, size = 12, hjust = 1))
 }
-ggplot(data.frame(coverage = coverage, unique_words = unique_words), aes(x=coverage, y=unique_words)) +
-      geom_line() +
-      labs(x = "Coverage Percentage", y = "Number of Unique Words Required", title = "Number of Unique Words vs. Coverage")
-```    
+make_ngram_barplot(top_unigram, 20, "Unigrams", "red")
+make_ngram_barplot(top_bigram,  20,  "Bigrams", "blue")
+make_ngram_barplot(top_trigram, 20, "Trigrams", "yellow")
+```
 
-There is clearly an exponential increase in the number of unique words required.
-I will need to determine the proper amount of words to use to keep the app small,
-while still covering enough of the language, whether that's 90%, 95% or some other value.
 
-# Key Understandings From This Analysis
-The main take away this analysis has shown is that I need to be selective on the
-amount of data I utilize in my final app. The data can get to several gigs in size,
-and that won't be acceptable to use. A smaller subset of data should be sufficient
-for a relatively large amount of coverage.
+## Word Clouds
 
-# Modeling: Next Steps
-The next step will involve creating a predictive model, and then creating a
-shiny app to deploy the model. This will include the results from this exploratory
-analysis (i.e. utilizing 90% of the word freqeuncy for a much smaller dataset).
+We can also make word clouds as another way to visualize our token frequencies.
+
+```{r wordClouds}
+make_word_cloud <- function(x, s, max_words){
+  wordcloud(x[,1], x[,2], scale=s,
+          min.freq=5, max.words=max_words, random.order=FALSE,
+          rot.per=0.5, colors=brewer.pal(8, "Dark2"),
+          use.r.layout=FALSE)
+}
+make_word_cloud(top_unigram, c(3.0, 0.1), 100)
+make_word_cloud(top_bigram,  c(2.3, 0.1), 100)
+make_word_cloud(top_trigram, c(1.5, 0.1), 100)
+```
+
+# Conclusion and Planning for Final Project
+
+It seems that we will have to sacrifice a significant portion of our model's accuracy for the sake of runtime. Even though the sample size is pretty small compared to the raw data set, it still takes quite a while to construct our ngrams data. I think a sample size of 30,000 will be sufficient. I think a better job could be done with the data cleaning, as some of the trigrams seem to be a bit odd.
+
+For the final project I plan on training a model using the N-grams constructed here and deploying it into a shiny application that will predict the next word from a user's input.
