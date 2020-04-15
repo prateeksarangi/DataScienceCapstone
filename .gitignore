@@ -1,7 +1,6 @@
 final/
 ngrams/
 MilestoneAnalysis_cache/
-MilestoneAnalysis_files/
 .RData
 .Rhistory
 .DS_Store
