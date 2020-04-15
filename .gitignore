@@ -1,4 +1,5 @@
 final/
+ngrams/
 .RData
 .Rhistory
 .DS_Store
