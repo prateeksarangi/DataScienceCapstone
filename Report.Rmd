@@ -1,0 +1,126 @@
+---
+title: "Milestone report"
+author: "Melania S. Masia"
+date: "12/19/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning=FALSE)
+```
+
+## 1. Project overview
+The purpose of this project is to create a predictive text product. The model will make typing on mobile devices easier by providing the choices with the highest probability to be typed by a user given the previous words and context of the sentence. The final data product will be a shiny app.
+
+## 2. Data
+The data used to train the model consists of a corpus of texts collected from publicly available sources by a web crawler in 4 languages (English, German, French and Russian). Each entry is tagged with the type of entry, based on the type of website it is collected from (e.g. newspaper or personal blog). Once the raw corpus was collected, it was parsed further, to remove duplicate entries and split into individual lines. The entries are anonymised. The final corpus is divided into blogs, news, and twitter source files and can be downloaded from [this site](https://web-beta.archive.org/web/20160930083655/http://www.corpora.heliohost.org/aboutcorpus.html).
+
+### 2.2 Read the files
+
+```{r}
+language = 'en_US' # ('de_DE','en_US','fi_FI','ru_RU')
+sources = c('blogs','news','twitter')
+rdata = list()
+for (src in sources){
+  path = file.path("final", language, paste(language,".",src,".txt",sep = "") )
+  rdata[[src]] = readLines(path, encoding = 'UTF-8', skipNul = TRUE)
+}
+```
+
+### 2.3 Basic file summaries
+```{r}
+require(stringi)
+require(knitr)
+blogs_stats   <- stri_stats_general(rdata$blogs)
+news_stats    <- stri_stats_general(rdata$news)
+twitter_stats <- stri_stats_general(rdata$twitter)
+stats <- data.frame(blogs_stats, news_stats, twitter_stats)
+size <- list(blogs_stats=format(object.size(rdata$blogs), units="MB"), news_stats=format(object.size(rdata$news), units="MB"), twitter_stats=format(object.size(rdata$twitter), units="MB"))
+longest_line <- list(blogs_stats=max(nchar(rdata$blogs)), news_stats=max(nchar(rdata$news)), twitter_stats=max(nchar(rdata$twitter)))
+stats2 <- rbind(size, stats, longest_line)
+row.names(stats2) <- c("Size", "Lines", "Non-empty lines", "Characters", "Non-white Characters", "Longest Line")
+names(stats2) <- c("Blogs", "News", "Twitter")
+kable(stats2, caption="File statistics")
+```
+
+## Data Clean-up
+### Corpus creation
+Since the size of the data is big, it is resampled to a 10% of it to improve the code performance. We use `{rbinom}` to determine the lines of text to sample.
+
+```{r}
+require(tm)
+df.blogs <- rdata$blogs[as.logical(rbinom(length(rdata$blogs),1, prob=0.1))]
+df.news <- rdata$news[as.logical(rbinom(length(rdata$news),1, prob=0.1))]
+df.twitter <- rdata$twitter[as.logical(rbinom(length(rdata$twitter),1, prob=0.1))]
+corpus = VCorpus(VectorSource(c(df.blogs,df.news,df.twitter)))
+```
+
+### Clean-up
+We first remove special characters and punctuation, change to lower case and strip white characters using the tm package.
+
+```{r}
+# Helper functions
+removeHashTags <- function(x) gsub("#\\S+", "", x)
+removeTwitterHandles <- function(x) gsub("@\\S+", "", x)
+removeURL <- function(x) gsub("http:[[:alnum:]]*", "", x)
+removeSpecialChars <- function(x) gsub("[^a-zA-Z0-9 ]","",x)
+# Remove handles and hashtags from the Twitter texts
+corpus["en_US.twitter.txt"] = tm_map(corpus["en_US.twitter.txt"], removeHashTags)
+corpus["en_US.twitter.txt"] = tm_map(corpus["en_US.twitter.txt"], removeTwitterHandles)
+# Data clean-up for the whole corpus
+corpus = tm_map(corpus, removeURL)
+corpus = tm_map(corpus, removeSpecialChars)
+corpus = tm_map(corpus, removeNumbers)
+corpus = tm_map(corpus, removePunctuation)
+corpus = tm_map(corpus, tolower)
+corpus = tm_map(corpus, stripWhitespace)
+```
+
+We then remove profanity to filter words we don't want to predict.
+
+```{r}
+profanity <- readLines("final/profanity.txt", skipNul = TRUE, warn = FALSE)
+corpus = tm_map(corpus, removeWords, profanity)
+```
+
+## Exploratory data analysis
+In this section, we perform a thorough exploratory analysis of the data in order to understand the distribution of words and relationship between the words in the corpora.
+
+### Word and word combination frequencies
+N-grams are created from the data. An N-gram is a group of words that appear in order, with the n value representing how many words are used. For example, 'I' is a 1-gram, 'I don't' is a 2-gram and 'I don't know' is a 3-gram.
+
+The benefit of using n-grams is that they provide more context on how sentences are created out of words, thus allowing for a better prediction model.
+
+We first create the n-grams by tokenizing the corpus and then create TermDocumenMatrix using `{tm}`. A TermDocumentMatrix is a matrix where the rows are he tokens and columns are the datasets. Each cell in this matrix represents the frequencies of the tokens in the datasets.
+
+```{r}
+require(quanteda)
+library(dplyr)
+library(corpus)
+q.corpus = corpus(corpus)
+corpus.1gram <- dfm(corpus, removePunct = TRUE, concatenator = " ")
+corpus.2gram <- dfm(q.corpus, removePunct = TRUE,  concatenator = " ", ngrams = 2)
+corpus.3gram <- dfm(q.corpus, removePunct = TRUE,  concatenator = " ", ngrams = 3)
+```
+
+Now we create plots with the 15 most common 1-, 2- and 3-grams.
+
+```{r}
+require(ggplot2); require(wordcloud); require(ggwordcloud)
+freq <- bind_rows(ngrams) %>%
+  group_by(type) %>%
+  slice(1:10)
+ggplot(freq, aes(reorder(token,-count),count)) +
+  geom_bar(stat = "identity", fill="steelblue", width = 0.4) +
+  ggtitle("Ngrams") +
+  xlab("Tokens") + ylab("Frequency (Log10)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  facet_grid(~type, scales = "free")
+```
+
+### Unique words
+
+
+### Percentage of foreign words
+
+### Improving coverage
