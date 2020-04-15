@@ -3,8 +3,8 @@ title: "Capstone Course Project - Milestone Report"
 author: "Prateek Sarangi"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 subtitle: Data Science Specialization from Johns Hopkins University
 ---
 
