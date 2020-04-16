@@ -24,17 +24,13 @@ For my project, I decided to use a backoff model to predict the next word of a s
 
 Input some text into the box in the left side panel (at least one word) and the predicted next word will be displayed in the main panel.
 
-Some phrases to try:
-"Happy new"
+Some phrases to try:  
+"Happy new"  
 "I turned it in a couple weeks"
 
 
 
-```{r appUI, echo=FALSE}
-suppressPackageStartupMessages(library(imager))
-myimg <- load.image("UI.PNG")
-plot(myimg, axes=FALSE)
-```
+![](/Users/ashwini/DataScienceCapstone/CapStone/UI.png)
 
 ## Thank You!
 
