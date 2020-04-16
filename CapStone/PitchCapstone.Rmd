@@ -1,0 +1,44 @@
+---
+title: "Final Capstone Course Project"
+subtitle: "Next Word Prediction Application Presentation"
+author: "Prateek Sarangi"
+date: ""
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Overview
+
+This is a presentation for the final project in the capstone course for the Data Science specialization provided by Johns Hopkins University on coursera.
+
+For this project we were instructed to build a shiny application that predicts the next word of a sentence from a character string that was input by the user, and deploy the application on R studio's servers.
+
+## Word prediction
+
+For my project, I decided to use a backoff model to predict the next word of a sentence. I built a text corpus from by combining 3 datasets of tweets, news, and blog posts, and pulled unigrams, bigrams, and trigrams from that data. When a user inputs a sentence, the application pulls the last 2 words from it and searches for a trigram that starts with the same 2 words, and returns the third word of the matching trigram that has the highest frequency from the initial dataset. There are no trigrams returned, the application then "backs off" and searches for a bigram that starts with the last word of the sentence, and returns the second word of the most frequent matched bigram. If no bigrams are found, the most frequent unigram is returned. (Which is why it predicts the word "said" so often)
+
+## How to Use the Application
+
+Input some text into the box in the left side panel (at least one word) and the predicted next word will be displayed in the main panel.
+
+Some phrases to try:
+"Happy new"
+"I turned it in a couple weeks"
+
+
+
+```{r appUI, echo=FALSE}
+suppressPackageStartupMessages(library(imager))
+myimg <- load.image("./UI.PNG")
+plot(myimg, axes=FALSE)
+```
+
+## Thank You!
+
+Thank you for using my application!
+
+My app can be found here
+Source code for the app can be found here
