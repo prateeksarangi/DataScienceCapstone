@@ -32,7 +32,7 @@ Some phrases to try:
 
 ```{r appUI, echo=FALSE}
 suppressPackageStartupMessages(library(imager))
-myimg <- load.image("./UI.PNG")
+myimg <- load.image("UI.PNG")
 plot(myimg, axes=FALSE)
 ```
 
@@ -40,5 +40,8 @@ plot(myimg, axes=FALSE)
 
 Thank you for using my application!
 
-My app can be found here
-Source code for the app can be found here
+**My app can be found here**
+https://prateeksarangi80.shinyapps.io/CapStone/
+
+**Source code for the app can be found here**
+https://github.com/prateeksarangi/DataScienceCapstone/tree/master/CapStone
