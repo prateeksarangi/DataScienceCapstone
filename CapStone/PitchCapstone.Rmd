@@ -2,7 +2,7 @@
 title: "Final Capstone Course Project"
 subtitle: "Next Word Prediction Application Presentation"
 author: "Prateek Sarangi"
-date: ""
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: ioslides_presentation
 ---
 
