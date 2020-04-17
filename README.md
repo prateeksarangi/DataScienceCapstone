@@ -8,5 +8,5 @@ Milestone report link:- https://rpubs.com/prateeksarangi/599644.
 Presentation link:- https://rpubs.com/prateeksarangi/600264.   
 Project link:- https://prateeksarangi80.shinyapps.io/CapStone/.   
 
-Course link:- https://www.coursera.org/specializations/jhu-data-science. 
+Course link:- https://www.coursera.org/specializations/jhu-data-science.   
 Certificate link:- https://www.coursera.org/account/accomplishments/specialization/BXVVCJHHNUER
